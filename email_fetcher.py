@@ -195,3 +195,17 @@ class GmailFetcher:
         except Exception as e:
             logger.error(f"Error fetching unread message IDs: {e}")
             return set()
+
+    def mark_as_read(self, msg_id: str):
+        """Remove UNREAD label from an email in Gmail."""
+        if not self.service:
+            self._authenticate()
+        try:
+            self.service.users().messages().modify(
+                userId="me",
+                id=msg_id,
+                body={"removeLabelIds": ["UNREAD"]}
+            ).execute()
+            logger.info(f"Marked email {msg_id} as read in Gmail.")
+        except Exception as e:
+            logger.warning(f"Could not mark email {msg_id} as read: {e}")

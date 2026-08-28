@@ -103,6 +103,7 @@ class EmailAIAgent:
             sent = self.telegram.send_email_with_summary(email_item, analysis)
             if sent:
                 logger.info(f"[SUCCESS] Delivered with AI summary: '{clean_subject}'")
+                self.fetcher.mark_as_read(msg_id)
             else:
                 logger.error(f"[FAILED] Could not deliver: '{clean_subject}'")
 
