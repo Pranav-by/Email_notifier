@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+credential.json
+token.json
+teligram_bot.txt
+processed_emails.json
