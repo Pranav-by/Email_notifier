@@ -5,7 +5,7 @@ import sys
 import time
 from datetime import datetime
 
-from config import CHECK_INTERVAL_SECONDS, PROCESSED_DB_FILE
+from config import CHECK_INTERVAL_SECONDS, MAX_AGE_MINUTES, NOTIFY_ALL_EMAILS, PROCESSED_DB_FILE
 from email_fetcher import GmailFetcher
 from ai_analyzer import AIAnalyzer
 from telegram_notifier import TelegramNotifier
@@ -74,8 +74,11 @@ class EmailAIAgent:
         else:
             logger.info("No unread emails currently in inbox.")
 
-    def process_cycle(self, query: str = "is:unread", max_results: int = 10):
+    def process_cycle(self, query: str = None, max_results: int = 10):
         """Run one check cycle over inbox, analyze with AI, and forward to Telegram."""
+        if query is None:
+            query = f"is:unread newer_than:{MAX_AGE_MINUTES}m"
+
         self.init_gmail()
         emails = self.fetcher.fetch_recent_emails(max_results=max_results, query=query)
 
@@ -90,7 +93,7 @@ class EmailAIAgent:
 
             clean_subject = email_item['subject'].encode('ascii', 'replace').decode('ascii')
             clean_sender = email_item['sender'].encode('ascii', 'replace').decode('ascii')
-            logger.info(f"Processing new email: '{clean_subject}' from {clean_sender}")
+            logger.info(f"Processing fresh email: '{clean_subject}' from {clean_sender}")
             
             # Generate AI summary & analysis
             analysis = self.ai.analyze_email(
@@ -156,13 +159,14 @@ class EmailAIAgent:
         if ignore_past:
             self.ignore_existing_emails()
 
-        logger.info(f"AI Email Summarizer Agent ACTIVE (Checking every {interval_seconds}s for NEW emails)...")
+        logger.info(f"AI Email Summarizer Agent ACTIVE (Checking every {interval_seconds}s for NEW emails in last {MAX_AGE_MINUTES}m)...")
         self.telegram.send_message("🤖 <b>AI Email Summarizer is now ACTIVE</b>\nI will summarize all new incoming emails and send them here.")
 
+        default_query = f"is:unread newer_than:{MAX_AGE_MINUTES}m"
         try:
             while True:
                 try:
-                    self.process_cycle(query="is:unread", max_results=10)
+                    self.process_cycle(query=default_query, max_results=10)
                 except Exception as e:
                     logger.error(f"Error during check cycle: {e}")
                 time.sleep(interval_seconds)
@@ -183,7 +187,8 @@ def main():
     if args.test_telegram:
         agent.test_telegram()
     elif args.once:
-        agent.process_cycle(query="is:unread")
+        query = "is:unread" if args.include_past else f"is:unread newer_than:{MAX_AGE_MINUTES}m"
+        agent.process_cycle(query=query)
     else:
         agent.run_polling(interval_seconds=args.interval, ignore_past=(not args.include_past))
 
